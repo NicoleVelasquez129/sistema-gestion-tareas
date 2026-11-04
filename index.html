@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Tareas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/tareas.css">
+</head>
+<body>
+    <header class="header">
+        <div class="contenedor header__contenido">
+            <div class="header__marca">
+                <span class="header__logo">✓</span>
+                <div>
+                    <h1 class="header__titulo">Gestión de Tareas</h1>
+                    <p class="header__subtitulo">Organiza tu día de forma simple</p>
+                </div>
+            </div>
+            <div class="header__contador">
+                <span id="contadorPendientes">0</span>
+                <small>pendientes</small>
+            </div>
+        </div>
+    </header>
+
+    <main class="contenedor principal">
+        <section class="panel">
+            <h2 class="panel__titulo">Nueva tarea</h2>
+            <form class="formulario" id="formularioTarea">
+                <div class="formulario__campo formulario__campo--ancho">
+                    <label class="formulario__etiqueta" for="titulo">Título</label>
+                    <input class="formulario__input" type="text" id="titulo" placeholder="¿Qué necesitas hacer?" required>
+                </div>
+                <div class="formulario__campo">
+                    <label class="formulario__etiqueta" for="prioridad">Prioridad</label>
+                    <select class="formulario__input" id="prioridad">
+                        <option value="baja">Baja</option>
+                        <option value="media" selected>Media</option>
+                        <option value="alta">Alta</option>
+                    </select>
+                </div>
+                <div class="formulario__campo">
+                    <label class="formulario__etiqueta" for="fecha">Fecha límite</label>
+                    <input class="formulario__input" type="date" id="fecha">
+                </div>
+                <button class="boton boton--primario formulario__boton" type="submit">Agregar tarea</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="tareas__encabezado">
+                <h2 class="panel__titulo">Mis tareas</h2>
+                <div class="filtros" id="filtros">
+                    <button class="filtro filtro--activo" type="button" data-filtro="todas">Todas</button>
+                    <button class="filtro" type="button" data-filtro="pendientes">Pendientes</button>
+                    <button class="filtro" type="button" data-filtro="completadas">Completadas</button>
+                </div>
+            </div>
+            <ul class="tareas" id="listaTareas"></ul>
+            <p class="tareas__vacio" id="mensajeVacio">No hay tareas por aquí. ¡Agrega la primera!</p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="contenedor footer__contenido">
+            <p>Sistema de Gestión de Tareas · <span id="anioActual"></span></p>
+        </div>
+    </footer>
+
+    <script>
+        const formulario = document.getElementById('formularioTarea');
+        const listaTareas = document.getElementById('listaTareas');
+        const mensajeVacio = document.getElementById('mensajeVacio');
+        const contadorPendientes = document.getElementById('contadorPendientes');
+        const filtros = document.getElementById('filtros');
+        let tareas = [];
+        let filtroActual = 'todas';
+
+        document.getElementById('anioActual').textContent = new Date().getFullYear();
+
+        formulario.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const titulo = document.getElementById('titulo').value.trim();
+            if (!titulo) return;
+
+            tareas.push({
+                id: Date.now(),
+                titulo,
+                prioridad: document.getElementById('prioridad').value,
+                fecha: document.getElementById('fecha').value,
+                completada: false
+            });
+
+            formulario.reset();
+            renderizar();
+        });
+
+        filtros.addEventListener('click', (e) => {
+            const boton = e.target.closest('.filtro');
+            if (!boton) return;
+            filtroActual = boton.dataset.filtro;
+            document.querySelectorAll('.filtro').forEach((f) => f.classList.remove('filtro--activo'));
+            boton.classList.add('filtro--activo');
+            renderizar();
+        });
+
+        function renderizar() {
+            listaTareas.innerHTML = '';
+
+            const visibles = tareas.filter((tarea) => {
+                if (filtroActual === 'pendientes') return !tarea.completada;
+                if (filtroActual === 'completadas') return tarea.completada;
+                return true;
+            });
+
+            visibles.forEach((tarea) => {
+                const item = document.createElement('li');
+                item.className = 'tarea' + (tarea.completada ? ' tarea--completada' : '');
+                item.innerHTML = `
+                    <label class="tarea__check">
+                        <input type="checkbox" ${tarea.completada ? 'checked' : ''} data-id="${tarea.id}">
+                        <span class="tarea__marca"></span>
+                    </label>
+                    <div class="tarea__contenido">
+                        <p class="tarea__titulo">${tarea.titulo}</p>
+                        <div class="tarea__meta">
+                            <span class="prioridad prioridad--${tarea.prioridad}">${tarea.prioridad}</span>
+                            ${tarea.fecha ? `<span class="tarea__fecha">📅 ${tarea.fecha}</span>` : ''}
+                        </div>
+                    </div>
+                    <button class="boton boton--eliminar" type="button" data-eliminar="${tarea.id}">Eliminar</button>
+                `;
+                listaTareas.appendChild(item);
+            });
+
+            mensajeVacio.style.display = visibles.length === 0 ? 'block' : 'none';
+            contadorPendientes.textContent = tareas.filter((t) => !t.completada).length;
+        }
+
+        listaTareas.addEventListener('change', (e) => {
+            if (e.target.matches('input[type="checkbox"]')) {
+                const tarea = tareas.find((t) => t.id === Number(e.target.dataset.id));
+                if (tarea) tarea.completada = e.target.checked;
+                renderizar();
+            }
+        });
+
+        listaTareas.addEventListener('click', (e) => {
+            const boton = e.target.closest('[data-eliminar]');
+            if (!boton) return;
+            tareas = tareas.filter((t) => t.id !== Number(boton.dataset.eliminar));
+            renderizar();
+        });
+
+        renderizar();
+    </script>
+</body>
+</html>
