@@ -77,26 +77,74 @@
         const mensajeVacio = document.getElementById('mensajeVacio');
         const contadorPendientes = document.getElementById('contadorPendientes');
         const filtros = document.getElementById('filtros');
+        // Dirección de la API del backend
+        const URL_API = 'http://localhost:3000/api/tareas';
+
         let tareas = [];
         let filtroActual = 'todas';
 
         document.getElementById('anioActual').textContent = new Date().getFullYear();
 
-        formulario.addEventListener('submit', (e) => {
+        // Hace una petición a la API y devuelve el JSON (o lanza un error con el mensaje del servidor)
+        async function llamarApi(ruta = '', opciones = {}) {
+            const respuesta = await fetch(URL_API + ruta, {
+                headers: { 'Content-Type': 'application/json' },
+                ...opciones
+            });
+            if (respuesta.status === 204) return null;
+            const datos = await respuesta.json();
+            if (!respuesta.ok) {
+                const detalles = datos.detalles ? '\n- ' + datos.detalles.join('\n- ') : '';
+                throw new Error(datos.error + detalles);
+            }
+            return datos;
+        }
+
+        // Muestra un error al usuario (por ejemplo, si el servidor está apagado)
+        function mostrarError(error) {
+            console.error(error);
+            const mensaje = error instanceof TypeError
+                ? 'No se pudo conectar con el servidor. ¿Está encendido el backend (npm run dev)?'
+                : error.message;
+            alert(mensaje);
+        }
+
+        // Pide todas las tareas al backend y vuelve a dibujar la lista
+        async function cargarTareas() {
+            try {
+                tareas = await llamarApi();
+                renderizar();
+            } catch (error) {
+                mostrarError(error);
+            }
+        }
+
+        // Evita que el texto escrito por el usuario se interprete como HTML
+        function escaparHtml(texto) {
+            const div = document.createElement('div');
+            div.textContent = texto;
+            return div.innerHTML;
+        }
+
+        formulario.addEventListener('submit', async (e) => {
             e.preventDefault();
             const titulo = document.getElementById('titulo').value.trim();
             if (!titulo) return;
 
-            tareas.push({
-                id: Date.now(),
-                titulo,
-                prioridad: document.getElementById('prioridad').value,
-                fecha: document.getElementById('fecha').value,
-                completada: false
-            });
-
-            formulario.reset();
-            renderizar();
+            try {
+                await llamarApi('', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        titulo,
+                        prioridad: document.getElementById('prioridad').value,
+                        fecha: document.getElementById('fecha').value
+                    })
+                });
+                formulario.reset();
+                await cargarTareas();
+            } catch (error) {
+                mostrarError(error);
+            }
         });
 
         filtros.addEventListener('click', (e) => {
@@ -126,7 +174,7 @@
                         <span class="tarea__marca"></span>
                     </label>
                     <div class="tarea__contenido">
-                        <p class="tarea__titulo">${tarea.titulo}</p>
+                        <p class="tarea__titulo">${escaparHtml(tarea.titulo)}</p>
                         <div class="tarea__meta">
                             <span class="prioridad prioridad--${tarea.prioridad}">${tarea.prioridad}</span>
                             ${tarea.fecha ? `<span class="tarea__fecha">📅 ${tarea.fecha}</span>` : ''}
@@ -141,22 +189,34 @@
             contadorPendientes.textContent = tareas.filter((t) => !t.completada).length;
         }
 
-        listaTareas.addEventListener('change', (e) => {
-            if (e.target.matches('input[type="checkbox"]')) {
-                const tarea = tareas.find((t) => t.id === Number(e.target.dataset.id));
-                if (tarea) tarea.completada = e.target.checked;
-                renderizar();
+        // Marcar / desmarcar una tarea como completada
+        listaTareas.addEventListener('change', async (e) => {
+            if (!e.target.matches('input[type="checkbox"]')) return;
+            try {
+                await llamarApi('/' + e.target.dataset.id, {
+                    method: 'PUT',
+                    body: JSON.stringify({ completada: e.target.checked })
+                });
+            } catch (error) {
+                mostrarError(error);
             }
+            await cargarTareas();
         });
 
-        listaTareas.addEventListener('click', (e) => {
+        // Eliminar una tarea
+        listaTareas.addEventListener('click', async (e) => {
             const boton = e.target.closest('[data-eliminar]');
             if (!boton) return;
-            tareas = tareas.filter((t) => t.id !== Number(boton.dataset.eliminar));
-            renderizar();
+            try {
+                await llamarApi('/' + boton.dataset.eliminar, { method: 'DELETE' });
+            } catch (error) {
+                mostrarError(error);
+            }
+            await cargarTareas();
         });
 
-        renderizar();
+        // Al abrir la página, se cargan las tareas guardadas en el backend
+        cargarTareas();
     </script>
 </body>
 </html>
