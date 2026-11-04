@@ -1,0 +1,19 @@
+{
+  "name": "backend-sistema-gestion-tareas",
+  "version": "1.0.0",
+  "description": "API REST (backend) del sistema de gestión de tareas",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.3.0"
+  }
+}
